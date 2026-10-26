@@ -16,7 +16,7 @@ PacketShot 把**原始 HTTP 请求/响应**渲染成 Burp 风格的 PNG 截图�
 ## 2. 安装
 
 ```bash
-git clone <本仓库地址> packetshot && cd packetshot
+git clone https://github.com/skx112/packetshot.git packetshot && cd packetshot
 pip install .                                  # 安装为 `packetshot` 命令
 python -m playwright install chromium          # 首次需要下载浏览器内核
 ```

@@ -19,7 +19,7 @@
 ## 安装
 
 ```bash
-git clone <本仓库地址> packetshot && cd packetshot
+git clone https://github.com/skx112/packetshot.git packetshot && cd packetshot
 pip install .                                  # 安装 packetshot 命令
 python -m playwright install chromium          # 首次需下载浏览器内核
 ```

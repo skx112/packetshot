@@ -23,7 +23,7 @@ dependencies = ["playwright>=1.40"]
 packetshot = "packetshot.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/your-org/packetshot"
+Homepage = "https://github.com/skx112/packetshot"
 
 [tool.setuptools]
 packages = ["packetshot"]
