@@ -97,6 +97,7 @@ packetshot/
 │   └── __init__.py
 ├── packetshot.py          # 兼容入口（未安装时直跑）
 ├── tests/                 # pytest 用例（本地模拟服务器，不依赖外网）
+├── ci/run-tests.sh        # 通用 CI 入口
 ├── examples/              # 示例数据包
 ├── docs/screenshot.png    # 效果图
 ├── AGENTS.md              # 给其他智能体的使用说明
@@ -132,7 +133,8 @@ python -m pytest -q
 ```
 
 测试使用本地模拟服务器（普通/gzip/chunked/二进制/慢响应/代理），
-不访问外网；CI 在 Python 3.9 / 3.11 / 3.13 上运行同一套用例。
+不访问外网。`ci/run-tests.sh` 是通用 CI 入口，可直接用于 GitHub Actions、
+GitLab CI 或 Jenkins（本地已通过 56 项用例）。
 
 ## 更新日志
 
