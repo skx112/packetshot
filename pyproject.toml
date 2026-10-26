@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "packetshot"
+version = "0.1.0"
+description = "Agent 渲染发包截图：把 HTTP 数据包渲染成带北京时间的渗透报告截图"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "PacketShot Authors" }]
+keywords = ["pentest", "report", "http", "screenshot", "playwright", "agent"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Security",
+]
+dependencies = ["playwright>=1.40"]
+
+[project.scripts]
+packetshot = "packetshot.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/your-org/packetshot"
+
+[tool.setuptools]
+packages = ["packetshot"]
+
+[tool.setuptools.package-data]
+packetshot = ["viewer.html"]

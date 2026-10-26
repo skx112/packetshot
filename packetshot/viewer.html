@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PacketShot Viewer</title>
+<style>
+  :root {
+    --bg: #14161b;
+    --card: #1c1f27;
+    --card-head: #22262f;
+    --border: #2e3340;
+    --fg: #d6dbe4;
+    --dim: #8b93a3;
+    --accent: #ff7a18;          /* Burp 橙 */
+    --method: #4ec9b0;
+    --version: #c586c0;
+    --hname: #9cdcfe;
+    --hvalue: #ce9178;
+    --status-ok: #4caf7d;
+    --hl-bg: #ffd400;
+    --hl-fg: #1a1a1a;
+    --gutter: #4a5160;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Noto Sans CJK SC", "Noto Sans", "Segoe UI", Arial, sans-serif;
+    padding: 18px;
+    width: max-content;
+    min-width: 100%;
+  }
+  #app { width: max-content; min-width: calc(100vw - 36px); }
+
+  /* ── 顶部工具栏 ─────────────────────────── */
+  .toolbar {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 12px;
+  }
+  .logo {
+    font-weight: 700; font-size: 15px; letter-spacing: .5px;
+    color: var(--accent); white-space: nowrap;
+  }
+  .logo small { color: var(--dim); font-weight: 400; margin-left: 6px; }
+  .chip {
+    font: 700 12px/1 "JetBrains Mono", Consolas, monospace;
+    padding: 5px 9px; border-radius: 6px; white-space: nowrap;
+  }
+  .chip-method { background: rgba(78,201,176,.15); color: var(--method); border: 1px solid rgba(78,201,176,.4); }
+  .chip-status { background: rgba(76,175,125,.15); color: var(--status-ok); border: 1px solid rgba(76,175,125,.4); }
+  .chip-hl { background: rgba(255,212,0,.12); color: var(--hl-bg); border: 1px solid rgba(255,212,0,.35); }
+  .url {
+    font: 13px "JetBrains Mono", Consolas, monospace;
+    color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    max-width: 640px;
+  }
+  .spacer { flex: 1; }
+  .meta { font-size: 12px; color: var(--dim); white-space: nowrap; }
+
+  /* ── 数据包卡片 ─────────────────────────── */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; margin-bottom: 12px; overflow: hidden;
+  }
+  .card-head {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card-head); border-bottom: 1px solid var(--border);
+    padding: 8px 14px; font-size: 13px; font-weight: 600;
+  }
+  .card-head .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .dot-req { background: var(--method); }
+  .dot-resp { background: var(--accent); }
+  .card-head .sub { color: var(--dim); font-weight: 400; font-size: 12px; }
+
+  pre.raw {
+    font: 13px/1.55 "JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace;
+    padding: 10px 0; overflow: visible; white-space: pre;
+    display: grid; grid-template-columns: auto 1fr; width: max-content; min-width: 100%;
+  }
+  .ln {
+    color: var(--gutter); text-align: right; padding: 0 12px 0 14px;
+    user-select: none; border-right: 1px solid var(--border); margin-right: 12px;
+    grid-column: 1;
+  }
+  .lc { grid-column: 2; padding-right: 16px; white-space: pre; }
+
+  .tok-method  { color: var(--method); font-weight: 700; }
+  .tok-target  { color: var(--fg); }
+  .tok-version { color: var(--version); }
+  .tok-hname   { color: var(--hname); }
+  .tok-hvalue  { color: var(--hvalue); }
+  .tok-status  { color: var(--status-ok); font-weight: 700; }
+  .tok-body    { color: var(--fg); }
+  mark.hl {
+    background: var(--hl-bg); color: var(--hl-fg);
+    border-radius: 3px; padding: 0 2px; font-weight: 700;
+    box-shadow: 0 0 0 1px rgba(255,212,0,.55);
+  }
+
+  /* ── 底部时间戳 ─────────────────────────── */
+  .footer {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 9px 14px;
+    font-size: 13px; color: var(--dim);
+  }
+  .bjtime { color: var(--fg); font-weight: 600; font-family: "JetBrains Mono", Consolas, monospace; }
+  .footer .tag { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/*__PACKET_DATA__*/
+
+const $ = (tag, cls, text) => {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text !== undefined) el.textContent = text;
+  return el;
+};
+
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** 把一行文本按语法角色切成段，再按高亮词切子段，返回 HTML */
+function renderLine(line, segments, hlRegex) {
+  let html = "";
+  for (const seg of segments) {
+    let rest = seg.text;
+    if (hlRegex) {
+      let m, last = 0;
+      hlRegex.lastIndex = 0;
+      while ((m = hlRegex.exec(rest)) !== null) {
+        if (m.index > last) html += span(seg.cls, rest.slice(last, m.index));
+        html += `<mark class="hl">${escapeHtml(m[0])}</mark>`;
+        last = m.index + m[0].length;
+        if (m[0].length === 0) hlRegex.lastIndex++;
+      }
+      if (last < rest.length) html += span(seg.cls, rest.slice(last));
+    } else {
+      html += span(seg.cls, rest);
+    }
+  }
+  return html || "&nbsp;";
+}
+
+const span = (cls, text) =>
+  `<span class="${cls}">${escapeHtml(text)}</span>`;
+const escapeHtml = s =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** 请求行/状态行/头部 语法分段 */
+function tokenize(line, isFirst, isResponse) {
+  if (isFirst) {
+    if (isResponse) {
+      const m = line.match(/^(HTTP\/[\d.]+)\s+(\d{3})(.*)$/);
+      if (m) return [
+        { cls: "tok-version", text: m[1] + " " },
+        { cls: "tok-status",  text: m[2] },
+        { cls: "tok-hvalue",  text: m[3] },
+      ];
+    } else {
+      const m = line.match(/^([A-Z]+)\s+(\S+)\s+(HTTP\/[\d.]+)$/);
+      if (m) return [
+        { cls: "tok-method",  text: m[1] + " " },
+        { cls: "tok-target",  text: m[2] + " " },
+        { cls: "tok-version", text: m[3] },
+      ];
+    }
+    return [{ cls: "tok-body", text: line }];
+  }
+  const h = line.match(/^([^:]+):(.*)$/);
+  if (h) return [
+    { cls: "tok-hname",  text: h[1] + ":" },
+    { cls: "tok-hvalue", text: h[2] },
+  ];
+  return [{ cls: "tok-body", text: line }];
+}
+
+function renderRaw(pre, raw, isResponse, hlRegex) {
+  const norm = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n+$/, "");
+  const lines = norm.split("\n");
+  // 头部与 body 分界
+  let inBody = false;
+  lines.forEach((line, i) => {
+    const ln = $("span", "ln", String(i + 1));
+    const lc = $("span", "lc");
+    const isFirst = i === 0;
+    let segs;
+    if (!inBody) {
+      segs = tokenize(line, isFirst, isResponse);
+      if (line === "") inBody = true;
+    } else {
+      segs = [{ cls: "tok-body", text: line }];
+    }
+    lc.innerHTML = renderLine(line, segs, hlRegex);
+    pre.appendChild(ln); pre.appendChild(lc);
+  });
+}
+
+(function main() {
+  const D = window.__PACKET__;
+  const app = document.getElementById("app");
+
+  const hlPatterns = (D.highlights || []).filter(Boolean);
+  const hlRegex = hlPatterns.length
+    ? new RegExp(hlPatterns.map(h => h.regex ? h.text : escRe(h.text)).join("|"), "g")
+    : null;
+
+  // 统计高亮命中数
+  let hlCount = 0;
+  if (hlRegex) {
+    const count = raw => {
+      const r = new RegExp(hlRegex.source, "g");
+      const m = raw.replace(/\r\n/g, "\n").match(r);
+      return m ? m.length : 0;
+    };
+    hlCount = count(D.request.raw) + (D.response ? count(D.response.raw) : 0);
+  }
+
+  // ── 工具栏
+  const bar = $("div", "toolbar");
+  const logo = $("div", "logo");
+  logo.textContent = D.title || "PacketShot";
+  const sm = $("small"); sm.textContent = "WebFuzz Replay";
+  logo.appendChild(sm);
+  bar.appendChild(logo);
+  bar.appendChild($("span", "chip chip-method", D.request.method));
+  const fullUrl = D.response && D.response.url ? D.response.url : D.request.url;
+  bar.appendChild($("span", "url", fullUrl));
+  bar.appendChild($("span", "spacer"));
+  if (D.response) {
+    bar.appendChild($("span", "chip chip-status", D.response.statusLine));
+    const metaParts = [];
+    if (D.response.elapsedMs !== null && D.response.elapsedMs !== undefined)
+      metaParts.push(`${D.response.elapsedMs} ms`);
+    metaParts.push(`${D.response.bytes} B`);
+    bar.appendChild($("span", "meta", metaParts.join(" · ")));
+  }
+  if (hlCount) bar.appendChild($("span", "chip chip-hl", `高亮 ×${hlCount}`));
+  app.appendChild(bar);
+
+  // ── 请求卡
+  const reqCard = $("div", "card");
+  const reqHead = $("div", "card-head");
+  reqHead.appendChild($("span", "dot dot-req"));
+  reqHead.appendChild($("span", null, "HTTP Request"));
+  reqHead.appendChild($("span", "sub", D.request.host || ""));
+  reqCard.appendChild(reqHead);
+  const reqPre = $("pre", "raw");
+  renderRaw(reqPre, D.request.raw, false, hlRegex);
+  reqCard.appendChild(reqPre);
+  app.appendChild(reqCard);
+
+  // ── 响应卡
+  if (D.response) {
+    const respCard = $("div", "card");
+    const respHead = $("div", "card-head");
+    respHead.appendChild($("span", "dot dot-resp"));
+    respHead.appendChild($("span", null, "HTTP Response"));
+    respHead.appendChild($("span", "sub", D.response.statusLine));
+    respCard.appendChild(respHead);
+    const respPre = $("pre", "raw");
+    renderRaw(respPre, D.response.raw, true, hlRegex);
+    respCard.appendChild(respPre);
+    app.appendChild(respCard);
+  }
+
+  // ── 底部：北京时间
+  const foot = $("div", "footer");
+  foot.appendChild($("span", "tag", "●"));
+  foot.appendChild($("span", null, "北京时间"));
+  foot.appendChild($("span", "bjtime", D.beijingTime));
+  foot.appendChild($("span", null, `Target: ${D.request.host || "-"}`));
+  foot.appendChild($("span", "spacer"));
+  foot.appendChild($("span", null, "Rendered by PacketShot · headless Chromium"));
+  app.appendChild(foot);
+})();
+</script>
+</body>
+</html>
