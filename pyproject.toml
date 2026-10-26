@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "packetshot"
-version = "0.1.0"
+version = "0.1.1"
 description = "Agent 渲染发包截图：把 HTTP 数据包渲染成带北京时间的渗透报告截图"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -18,6 +18,9 @@ classifiers = [
     "Topic :: Security",
 ]
 dependencies = ["playwright>=1.40"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
 
 [project.scripts]
 packetshot = "packetshot.cli:main"

@@ -72,6 +72,13 @@
   .dot-req { background: var(--method); }
   .dot-resp { background: var(--accent); }
   .card-head .sub { color: var(--dim); font-weight: 400; font-size: 12px; }
+  .card-head .note { color: #e5c07b; font-weight: 400; font-size: 12px; }
+
+  /* --wrap：长行换行，不再把图片撑宽 */
+  html.wrap body { width: auto; min-width: 0; }
+  html.wrap #app { width: calc(100vw - 36px); min-width: 0; }
+  html.wrap .raw { width: 100%; min-width: 0; }
+  html.wrap .lc { white-space: pre-wrap; overflow-wrap: anywhere; }
 
   pre.raw {
     font: 13px/1.55 "JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace;
@@ -203,6 +210,7 @@ function renderRaw(pre, raw, isResponse, hlRegex) {
 (function main() {
   const D = window.__PACKET__;
   const app = document.getElementById("app");
+  if (D.wrap) document.documentElement.classList.add("wrap");
 
   const hlPatterns = (D.highlights || []).filter(Boolean);
   const hlRegex = hlPatterns.length
@@ -248,6 +256,8 @@ function renderRaw(pre, raw, isResponse, hlRegex) {
   reqHead.appendChild($("span", "dot dot-req"));
   reqHead.appendChild($("span", null, "HTTP Request"));
   reqHead.appendChild($("span", "sub", D.request.host || ""));
+  if (D.request.omitted)
+    reqHead.appendChild($("span", "note", `已截断 ${D.request.omitted} 行`));
   reqCard.appendChild(reqHead);
   const reqPre = $("pre", "raw");
   renderRaw(reqPre, D.request.raw, false, hlRegex);
@@ -261,6 +271,8 @@ function renderRaw(pre, raw, isResponse, hlRegex) {
     respHead.appendChild($("span", "dot dot-resp"));
     respHead.appendChild($("span", null, "HTTP Response"));
     respHead.appendChild($("span", "sub", D.response.statusLine));
+    if (D.response.note)
+      respHead.appendChild($("span", "note", D.response.note));
     respCard.appendChild(respHead);
     const respPre = $("pre", "raw");
     renderRaw(respPre, D.response.raw, true, hlRegex);
